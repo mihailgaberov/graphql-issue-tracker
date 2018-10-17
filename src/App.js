@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import axios from 'axios';
+import User from './User';
 
 const axiosGitHubGraphQL = axios.create({
   baseURL: 'https://api.github.com/graphql',
@@ -12,29 +13,56 @@ const axiosGitHubGraphQL = axios.create({
 
 const TITLE = 'React GraphQL GitHub Client';
 
-const GET_ORGANIZATION = `
-  {
-    user(login: "mihailgaberov") {
+const GET_ISSUES_OF_REPOSITORY = `
+  query ($user: String!, $repository: String!) {
+    user(login: $user) {
       name
       url
+      repository(name: $repository) {
+        name
+        url
+        issues(last: 5) {
+          edges {
+            node {
+              id
+              title
+              url
+            }
+          }
+        }
+      }
     }
   }
-`;
+  `;
+
+const getIssuesOfRepository = path => {
+  const [user, repository] = path.split('/');
+
+  return axiosGitHubGraphQL.post('', {
+    query: GET_ISSUES_OF_REPOSITORY,
+    variables: { user, repository },
+  });
+};
+
+const resolveIssuesQuery = queryResult => () => ({
+  user: queryResult.data.data.user,
+  errors: queryResult.data.errors,
+});
 
 class App extends Component {
   state = {
     path: 'mihailgaberov/es6-bingo-game',
+    user: null,
+    errors: null,
   };
 
-  onFetchFromGitHub = () => {
-    axiosGitHubGraphQL
-      .post('', { query: GET_ORGANIZATION })
-      .then(result => console.log(result));
+  onFetchFromGitHub = path => {
+    getIssuesOfRepository(path).then(queryResult => this.setState(resolveIssuesQuery(queryResult)))
   };
 
 
   componentDidMount() {
-    this.onFetchFromGitHub();
+    this.onFetchFromGitHub(this.state.path);
   }
 
   onChange = event => {
@@ -42,13 +70,12 @@ class App extends Component {
   };
 
   onSubmit = event => {
-    // fetch data
-
+    this.onFetchFromGitHub(this.state.path);
     event.preventDefault();
   };
 
   render() {
-    const { path } = this.state;
+    const { path, user, errors } = this.state;
 
     return (
       <div>
@@ -67,10 +94,8 @@ class App extends Component {
           />
           <button type="submit">Search</button>
         </form>
-
         <hr />
-
-        {/* Here comes the result! */}
+        {user ? (<User user={user} errors={errors} />) : <p>No information yet.</p>}
       </div>
     );
   }
