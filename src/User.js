@@ -1,7 +1,7 @@
 import React from 'react';
 import Repository from './Repository';
 
-const User = ({ user, errors }) => {
+const User = ({ user, errors, onFetchMoreIssues }) => {
   if (errors) {
     return (
       <p>
@@ -17,7 +17,7 @@ const User = ({ user, errors }) => {
       <strong>Issues from User: </strong>
       <a href={user.url}>{user.name}</a>
     </p>
-    <Repository repository={user.repository} />
+    <Repository repository={user.repository} onFetchMoreIssues={onFetchMoreIssues} />
   </div>
   )
 };

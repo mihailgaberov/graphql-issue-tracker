@@ -14,20 +14,33 @@ const axiosGitHubGraphQL = axios.create({
 const TITLE = 'React GraphQL GitHub Client';
 
 const GET_ISSUES_OF_REPOSITORY = `
-  query ($user: String!, $repository: String!) {
+  query ($user: String!, $repository: String!, $cursor: String) {
     user(login: $user) {
       name
       url
       repository(name: $repository) {
         name
         url
-        issues(last: 5) {
+        issues(first: 1, after: $cursor, states: [OPEN]) {
           edges {
             node {
               id
               title
               url
+              reactions(last: 3) {
+                edges {
+                  node {
+                    id
+                    content
+                  }
+                }
+              }
             }
+          }
+          totalCount
+          pageInfo {
+            endCursor
+            hasNextPage
           }
         }
       }
@@ -35,19 +48,43 @@ const GET_ISSUES_OF_REPOSITORY = `
   }
   `;
 
-const getIssuesOfRepository = path => {
+const getIssuesOfRepository = (path, cursor) => {
   const [user, repository] = path.split('/');
 
   return axiosGitHubGraphQL.post('', {
     query: GET_ISSUES_OF_REPOSITORY,
-    variables: { user, repository },
+    variables: { user, repository, cursor },
   });
 };
 
-const resolveIssuesQuery = queryResult => () => ({
-  user: queryResult.data.data.user,
-  errors: queryResult.data.errors,
-});
+const resolveIssuesQuery = (queryResult, cursor) => state => {
+  const { data, errors } = queryResult.data;
+
+  if (!cursor) {
+    return {
+      user: data.user,
+      errors,
+    };
+  }
+
+  const { edges: oldIssues } = state.user.repository.issues;
+  const { edges: newIssues } = data.user.repository.issues;
+  const updatedIssues = [...oldIssues, ...newIssues];
+
+  return {
+    user: {
+      ...data.user,
+      repository: {
+        ...data.user.repository,
+        issues: {
+          ...data.user.repository.issues,
+          edges: updatedIssues,
+        },
+      },
+    },
+    errors,
+  };
+};
 
 class App extends Component {
   state = {
@@ -56,8 +93,8 @@ class App extends Component {
     errors: null,
   };
 
-  onFetchFromGitHub = path => {
-    getIssuesOfRepository(path).then(queryResult => this.setState(resolveIssuesQuery(queryResult)))
+  onFetchFromGitHub = (path, cursor) => {
+    getIssuesOfRepository(path, cursor).then(queryResult => this.setState(resolveIssuesQuery(queryResult, cursor)))
   };
 
 
@@ -72,6 +109,12 @@ class App extends Component {
   onSubmit = event => {
     this.onFetchFromGitHub(this.state.path);
     event.preventDefault();
+  };
+
+  onFetchMoreIssues = () => {
+    const { endCursor } = this.state.user.repository.issues.pageInfo;
+
+    this.onFetchFromGitHub(this.state.path, endCursor);
   };
 
   render() {
@@ -95,7 +138,12 @@ class App extends Component {
           <button type="submit">Search</button>
         </form>
         <hr />
-        {user ? (<User user={user} errors={errors} />) : <p>No information yet.</p>}
+        {user ? (<User user={user}
+          errors={errors}
+          onFetchMoreIssues={this.onFetchMoreIssues}
+        />) : (
+            <p>No information yet.</p>
+          )}
       </div>
     );
   }

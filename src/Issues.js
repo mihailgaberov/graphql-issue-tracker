@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactionsList from './ReactionsList';
 
 const Issues = ({ issues }) => (
   <div>
@@ -6,6 +7,7 @@ const Issues = ({ issues }) => (
       Issues: {issues.edges.map(issue => (
         <li key={issue.node.id}>
           <a href={issue.node.url}>{issue.node.title}</a>
+          <ReactionsList reactions={issue.node.reactions} />
         </li>
       ))}
     </ul>
