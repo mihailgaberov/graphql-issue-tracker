@@ -1,7 +1,7 @@
 import React from 'react';
 import Repository from './Repository';
 
-const User = ({ user, errors, onFetchMoreIssues }) => {
+const User = ({ user, errors, onFetchMoreIssues, onStarRepository }) => {
   if (errors) {
     return (
       <p>
@@ -17,7 +17,11 @@ const User = ({ user, errors, onFetchMoreIssues }) => {
       <strong>Issues from User: </strong>
       <a href={user.url}>{user.name}</a>
     </p>
-    <Repository repository={user.repository} onFetchMoreIssues={onFetchMoreIssues} />
+    <Repository 
+      repository={user.repository} 
+      onFetchMoreIssues={onFetchMoreIssues}
+      onStarRepository={onStarRepository}
+    />
   </div>
   )
 };

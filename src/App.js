@@ -19,8 +19,13 @@ const GET_ISSUES_OF_REPOSITORY = `
       name
       url
       repository(name: $repository) {
+        id
         name
         url
+        viewerHasStarred
+        stargazers {
+          totalCount
+        }
         issues(first: 1, after: $cursor, states: [OPEN]) {
           edges {
             node {
@@ -47,6 +52,26 @@ const GET_ISSUES_OF_REPOSITORY = `
     }
   }
   `;
+  
+  const ADD_STAR = `
+    mutation ($repositoryId: ID!) {
+      addStar(input:{starrableId:$repositoryId}) {
+        starrable {
+          viewerHasStarred
+        }
+      }
+    }
+  `;
+
+  const REMOVE_STAR = `
+  mutation ($repositoryId: ID!) {
+    removeStar(input:{starrableId:$repositoryId}) {
+      starrable {
+        viewerHasStarred
+      }
+    }
+  }
+`;
 
 const getIssuesOfRepository = (path, cursor) => {
   const [user, repository] = path.split('/');
@@ -86,6 +111,61 @@ const resolveIssuesQuery = (queryResult, cursor) => state => {
   };
 };
 
+const resolveAddStarMutation = mutationResult => state => {
+  const { viewerHasStarred } = mutationResult.data.data.addStar.starrable;
+  const { totalCount } = state.user.repository.stargazers;
+
+
+  return {
+    ...state,
+    user: {
+      ...state.user,
+      repository: {
+        ...state.user.repository,
+        viewerHasStarred,
+        stargazers: {
+          totalCount: totalCount + 1,
+        },
+      },
+    },
+  };
+};
+
+const resolveRemoveStarMutation = mutationResult => state => {
+  const { viewerHasStarred } = mutationResult.data.data.removeStar.starrable;
+  const { totalCount } = state.user.repository.stargazers;
+
+
+  return {
+    ...state,
+    user: {
+      ...state.user,
+      repository: {
+        ...state.user.repository,
+        viewerHasStarred,
+        stargazers: {
+          totalCount: totalCount - 1,
+        },
+      },
+    },
+  };
+};
+
+const addStarToRepository = repositoryId => {
+    return axiosGitHubGraphQL.post('', {
+      query: ADD_STAR,
+      variables: { repositoryId },
+    });
+  };
+
+  const removeStarToRepository = repositoryId => {
+    return axiosGitHubGraphQL.post('', {
+      query: REMOVE_STAR,
+      variables: { repositoryId },
+    });
+  };
+  
+
 class App extends Component {
   state = {
     path: 'mihailgaberov/es6-bingo-game',
@@ -117,6 +197,19 @@ class App extends Component {
     this.onFetchFromGitHub(this.state.path, endCursor);
   };
 
+  onStarRepository = (repoId, viewerHasStarred) => {
+    if (viewerHasStarred) {
+      removeStarToRepository(repoId).then(mutationResult =>
+        this.setState(resolveRemoveStarMutation(mutationResult)),
+      );
+    } else {
+      addStarToRepository(repoId).then(mutationResult =>
+        this.setState(resolveAddStarMutation(mutationResult)),
+      );
+    }
+    
+  };
+
   render() {
     const { path, user, errors } = this.state;
 
@@ -138,9 +231,11 @@ class App extends Component {
           <button type="submit">Search</button>
         </form>
         <hr />
-        {user ? (<User user={user}
+        {user ? 
+        (<User user={user}
           errors={errors}
           onFetchMoreIssues={this.onFetchMoreIssues}
+          onStarRepository={this.onStarRepository}
         />) : (
             <p>No information yet.</p>
           )}

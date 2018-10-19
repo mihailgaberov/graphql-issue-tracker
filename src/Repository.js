@@ -1,7 +1,7 @@
 import React from 'react';
 import Issues from './Issues';
 
-const Repository = ({ repository, onFetchMoreIssues }) => (
+const Repository = ({ repository, onFetchMoreIssues, onStarRepository }) => (
   <div>
     <p>
       <strong>In Repository: </strong>
@@ -11,6 +11,11 @@ const Repository = ({ repository, onFetchMoreIssues }) => (
     <Issues issues={repository.issues} />
 
     <hr />
+
+    <button type="button" onClick={() => onStarRepository(repository.id, repository.viewerHasStarred)}>
+      {repository.stargazers.totalCount}
+      {repository.viewerHasStarred ? 'Unstar' : 'Star'}
+    </button>
 
     {repository.issues.pageInfo.hasNextPage && <button onClick={onFetchMoreIssues}>More</button>}
   </div>
